@@ -1,0 +1,100 @@
+<?php
+
+
+namespace App\Form\DataTransformer;
+
+
+use App\Application\Sonata\MediaBundle\Entity\Media;
+use Psr\Log\LoggerAwareInterface;
+use Psr\Log\LoggerAwareTrait;
+use Sonata\MediaBundle\Model\MediaInterface;
+use Sonata\MediaBundle\Provider\Pool;
+use Symfony\Component\Form\DataTransformerInterface;
+
+
+
+class SVGTransformer implements DataTransformerInterface, LoggerAwareInterface
+{
+    use LoggerAwareTrait;
+
+
+    private  $options;
+    private  $pool;
+    public function __construct(Pool $pool, $options)
+    {
+        $this->options = $this->getOptions($options);
+        $this->pool = $pool;
+    }
+
+    public function transform($value)
+    {
+        return $value;
+    }
+
+    public function reverseTransform($media)
+    {
+        if (!$media instanceof MediaInterface) {
+            return $media;
+        }
+
+        $binaryContent = $media->getBinaryContent();
+
+        // no binary
+        if (empty($binaryContent)) {
+            // and no media id
+            if (null === $media->getId()){
+                return;
+            }
+            if ($media->getId()) {
+                return $media;
+            }
+
+            $media->setProviderStatus(MediaInterface::STATUS_PENDING);
+            $media->setProviderReference(MediaInterface::MISSING_BINARY_REFERENCE);
+
+            return $media;
+        }
+
+
+        $media->setProviderName($this->options['provider']);
+
+
+        $provider = $this->pool->getProvider($media->getProviderName());
+
+
+        try {
+            $provider->transform($media);
+        } catch (\Throwable $e) {
+            $this->logger->error(
+                sprintf('Caught Exception %s: "%s" at %s line %s', \get_class($e), $e->getMessage(), $e->getFile(), $e->getLine()),
+                ['exception' => $e->getMessage()]
+            );
+        }
+        if (!$media->getContext() && $this->options['context']) {
+            $media->setContext($this->options['context']);
+        }
+        /**@var Media $value*/
+        if($media->getProviderReference() === null){
+            $media->setProviderReference($media->getPreviousProviderReference());
+        }
+        return $media;
+    }
+
+
+    /**
+     * Define the default options for the DataTransformer.
+     *
+     * @return array
+     */
+    protected function getOptions(array $options)
+    {
+        return array_merge([
+            'provider' => false,
+            'context' => false,
+            'empty_on_new' => true,
+            'new_on_update' => true,
+        ], $options);
+    }
+
+
+}
