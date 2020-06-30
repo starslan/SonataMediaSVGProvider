@@ -1,0 +1,17 @@
+    admin.provider.image:
+        class: App\Application\Sonata\MediaBundle\Provider\ImageProvider
+        tags:
+          - { name: sonata.media.provider }
+        arguments:
+          - "admin.provider.image"
+          - "@sonata.media.filesystem.local"
+          - "@sonata.media.cdn.server"
+          - "@sonata.media.generator.default"
+          - "@sonata.media.thumbnail.format"
+          - ['gif', 'svg', 'jpg', 'jpeg', 'png']
+          - ['image/svg+xml', 'image/gif', 'image/jpeg', 'image/pjpeg', 'image/png']
+          - '@sonata.media.adapter.image.gd'
+          - '@sonata.media.metadata.proxy'
+        calls:
+          - [ setTemplates, [{ helper_thumbnail: 'bundles\SonataMediaBundle\MediaAdmin\thumbnail.html.twig', helper_view: 'bundles\SonataMediaBundle\MediaAdmin\view_image.html.twig' }]]
+          - [ setResizer, ['@sonata.media.resizer.simple']]
